@@ -8,8 +8,8 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.validation.constraints.Min;
 
+@JsonFilter("monFiltreDynamique")
 @Entity
-//@JsonFilter("monFiltreDynamique")
 public class Product {
 
     @Id

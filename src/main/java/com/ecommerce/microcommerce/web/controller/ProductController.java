@@ -14,8 +14,12 @@ import org.springframework.http.converter.json.MappingJacksonValue;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+
 import javax.validation.Valid;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 
@@ -34,13 +38,13 @@ public class ProductController {
 
     public MappingJacksonValue listeProduits() {
 
-        Iterable<Product> produits = productDao.findAll();
+        List<Product> ps = productDao.findAll();
 
         SimpleBeanPropertyFilter monFiltre = SimpleBeanPropertyFilter.serializeAllExcept("prixAchat");
 
         FilterProvider listDeNosFiltres = new SimpleFilterProvider().addFilter("monFiltreDynamique", monFiltre);
 
-        MappingJacksonValue produitsFiltres = new MappingJacksonValue(produits);
+        MappingJacksonValue produitsFiltres = new MappingJacksonValue(ps);
 
         produitsFiltres.setFilters(listDeNosFiltres);
 
@@ -71,7 +75,9 @@ public class ProductController {
 
         Product productAdded =  productDao.save(product);
 
-        if (productAdded == null)
+        if (productAdded == null )
+            return ResponseEntity.noContent().build();
+        else if (productAdded.getPrix()==0)
             return ResponseEntity.noContent().build();
 
         URI location = ServletUriComponentsBuilder
@@ -102,6 +108,20 @@ public class ProductController {
 
         return productDao.chercherUnProduitCher(400);
     }
+
+    //calcule de la marge de chaque produit
+    @GetMapping(value = "/AdminProduits")
+    public List<String> calculerMargeProduit(){
+        List<Product> ps = productDao.findAll();
+        List<String> psm= new ArrayList<>();
+        for (Product p:ps) {
+            int m=p.getPrix()-p.getPrixAchat();
+            psm.add(p.toString()+":"+m+"");
+        }
+        return psm;
+    }
+
+
 
 
 
