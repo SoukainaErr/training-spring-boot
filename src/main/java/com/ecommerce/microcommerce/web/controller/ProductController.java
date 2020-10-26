@@ -2,6 +2,7 @@ package com.ecommerce.microcommerce.web.controller;
 
 import com.ecommerce.microcommerce.dao.ProductDao;
 import com.ecommerce.microcommerce.model.Product;
+import com.ecommerce.microcommerce.model.User;
 import com.ecommerce.microcommerce.web.exceptions.ProduitGratuitException;
 import com.ecommerce.microcommerce.web.exceptions.ProduitIntrouvableException;
 import com.fasterxml.jackson.databind.ser.FilterProvider;
@@ -9,11 +10,12 @@ import com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter;
 import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiResponse;
-import io.swagger.annotations.ApiResponses;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.json.MappingJacksonValue;
+import org.springframework.security.access.annotation.Secured;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -39,34 +41,45 @@ public class ProductController {
 
     public MappingJacksonValue listeProduits() {
 
+        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
         List<Product> ps = productDao.findAll();
-
-        SimpleBeanPropertyFilter monFiltre = SimpleBeanPropertyFilter.serializeAllExcept("prixAchat");
-
-        FilterProvider listDeNosFiltres = new SimpleFilterProvider().addFilter("monFiltreDynamique", monFiltre);
 
         MappingJacksonValue produitsFiltres = new MappingJacksonValue(ps);
 
-        produitsFiltres.setFilters(listDeNosFiltres);
+        return getMappingJacksonValue(user, produitsFiltres);
 
-        return produitsFiltres;
     }
 
+    private MappingJacksonValue getMappingJacksonValue(User user, MappingJacksonValue produitsFiltres) {
+        if(user.getRole().equals("user")){
+            FilterProvider listDeNosFiltres = new SimpleFilterProvider().addFilter("monFiltreDynamique", SimpleBeanPropertyFilter.serializeAllExcept("prixAchat","prix"));
+            produitsFiltres.setFilters(listDeNosFiltres);
+            return produitsFiltres;
+        }else {
+            FilterProvider listDeNosFiltres = new SimpleFilterProvider().addFilter("monFiltreDynamique", SimpleBeanPropertyFilter.serializeAllExcept("prixAchat"));
+            produitsFiltres.setFilters(listDeNosFiltres);
+            return produitsFiltres;
+        }
+    }
 
+    @Secured("admin")
     //Récupérer un produit par son Id
     @ApiOperation(value = "Récupère un produit grâce à son ID à condition que celui-ci soit en stock!", tags = "afficherUnProduit")
     @GetMapping(value = "/Produits/{id}")
     public MappingJacksonValue afficherUnProduit(@PathVariable int id) {
 
+        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
         Product produit = productDao.findById(id);
+
+        MappingJacksonValue produitsFiltres = new MappingJacksonValue(produit);
 
         if(produit==null) throw new ProduitIntrouvableException("Le produit avec l'id " + id + " est INTROUVABLE. Écran Bleu si je pouvais.");
 
-        MappingJacksonValue produitsFiltres = new MappingJacksonValue(produit);
-        FilterProvider listDeNosFiltres = new SimpleFilterProvider().addFilter("monFiltreDynamique", SimpleBeanPropertyFilter.serializeAllExcept("prixAchat"));
-        produitsFiltres.setFilters(listDeNosFiltres);
+        return getMappingJacksonValue(user, produitsFiltres);
 
-        return produitsFiltres;
+
     }
 
 
@@ -113,8 +126,8 @@ public class ProductController {
 
         return productDao.chercherUnProduitCher(400);
     }
-
     //calcule de la marge de chaque produit
+
     @ApiOperation(value = "calculer la marge", tags = "calculerMargeProduit")
     @GetMapping(value = "/AdminProduits")
     public List<String> calculerMargeProduit(){
@@ -127,7 +140,13 @@ public class ProductController {
         return psm;
     }
 
+    @GetMapping(value = "/user")
+    public ResponseEntity<User> getUser(){
 
+        User user = (User) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        return  new ResponseEntity<User>(user, HttpStatus.OK);
+    }
 
 
 
